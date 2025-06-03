@@ -1,11 +1,29 @@
 import midtransClient from 'midtrans-client';
 
+export const config = {
+  api: {
+    bodyParser: true, // pastikan JSON body bisa diparse
+  },
+};
+
 export default async function handler(req, res) {
+  // GET untuk testing endpoint
+  if (req.method === 'GET') {
+    return res.status(200).json({ 
+      message: 'Notification endpoint is working',
+      timestamp: new Date().toISOString(),
+      endpoint: '/api/midtrans/notification',
+      methods: ['GET', 'POST']
+    });
+  }
+
+  // Hanya terima POST
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
   try {
+    // Inisialisasi Snap di dalam handler
     const snap = new midtransClient.Snap({
       isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true',
       serverKey: process.env.MIDTRANS_SERVER_KEY,
@@ -13,48 +31,43 @@ export default async function handler(req, res) {
     });
 
     const notification = req.body;
-    
+
+    // Logging untuk debug
+    console.log('Received notification:', notification);
+
+    // Proses notifikasi dari Midtrans
     const statusResponse = await snap.transaction.notification(notification);
-    
+
     const orderId = statusResponse.order_id;
     const transactionStatus = statusResponse.transaction_status;
     const fraudStatus = statusResponse.fraud_status;
 
     console.log(`Transaction notification received. Order ID: ${orderId}. Transaction status: ${transactionStatus}. Fraud status: ${fraudStatus}`);
 
-    // Handle different transaction statuses
-    if (transactionStatus == 'capture') {
-      if (fraudStatus == 'challenge') {
+    // Handle status (bisa update database di sini)
+    if (transactionStatus === 'capture') {
+      if (fraudStatus === 'challenge') {
         console.log('Payment status: Challenge');
-        // TODO: Set payment status in database to 'Challenge'
-      } else if (fraudStatus == 'accept') {
+      } else if (fraudStatus === 'accept') {
         console.log('Payment status: Success (Capture Accept)');
-        // TODO: Set payment status in database to 'Success'
       }
-    } else if (transactionStatus == 'settlement') {
+    } else if (transactionStatus === 'settlement') {
       console.log('Payment status: Success (Settlement)');
-      // TODO: Set payment status in database to 'Success'
-    } else if (transactionStatus == 'cancel' || transactionStatus == 'deny' || transactionStatus == 'expire') {
+    } else if (['cancel', 'deny', 'expire'].includes(transactionStatus)) {
       console.log('Payment status: Failed');
-      // TODO: Set payment status in database to 'Failure'
-    } else if (transactionStatus == 'pending') {
+    } else if (transactionStatus === 'pending') {
       console.log('Payment status: Pending');
-      // TODO: Set payment status in database to 'Pending'
     }
 
-    res.status(200).json({ 
+    // Penting: selalu return 200 ke Midtrans
+    return res.status(200).json({ 
       success: true,
       message: 'Notification processed successfully' 
     });
 
   } catch (error) {
     console.error('Notification Error:', error);
-    console.error('Error details:', {
-      message: error.message,
-      stack: error.stack
-    });
-    
-    res.status(500).json({
+    return res.status(200).json({ // Tetap return 200 agar Midtrans tidak retry terus
       success: false,
       error: error.message
     });
