@@ -26,9 +26,9 @@ export default async function handler(req, res) {
         secure: true
       },
       callbacks: {
-        finish: null,
-        error: null,
-        pending: null
+        finish: 'javascript:void(0)',
+        error: 'javascript:void(0)',
+        pending: 'javascript:void(0)'
       }
     };
 
