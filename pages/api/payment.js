@@ -24,6 +24,11 @@ export default async function handler(req, res) {
       item_details: item_details,
       credit_card: {
         secure: true
+      },
+      callbacks: {
+        finish: null,
+        error: null,
+        pending: null
       }
     };
 
